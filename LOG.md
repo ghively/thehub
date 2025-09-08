@@ -18,3 +18,5 @@ Planned next:
 - Validate results and iterate as needed.
 
 Logging: install dependencies in runtime and run tests
+
+- Ran STDIO test: passed. Preparing to run WS test with elevated permissions due to sandbox port binding restrictions.
