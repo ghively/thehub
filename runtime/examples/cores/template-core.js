@@ -18,6 +18,17 @@ const TOOLS = [
   }
 ];
 
+// Example: To add another tool pattern (e.g., uppercase), copy below and adjust.
+// {
+//   name: 'upper',
+//   description: 'Uppercase the provided text',
+//   inputSchema: {
+//     type: 'object',
+//     properties: { text: { type: 'string' } },
+//     required: ['text']
+//   }
+// }
+
 let buffer = Buffer.alloc(0);
 
 function send(obj) {
@@ -42,6 +53,10 @@ function handle(msg) {
         const text = String(params?.arguments?.text ?? '');
         return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }], isError: false } });
       }
+      // if (name === 'upper') {
+      //   const text = String(params?.arguments?.text ?? '');
+      //   return send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: text.toUpperCase() }], isError: false } });
+      // }
       return send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Unknown tool: ${name}` } });
     }
     default:
@@ -66,4 +81,3 @@ function pump() {
 }
 
 stdin.on('data', (chunk) => { buffer = Buffer.concat([buffer, chunk]); pump(); });
-

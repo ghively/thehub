@@ -45,6 +45,10 @@ cores:
 - `command` required; `args` optional.
 - `max_concurrency` defaults to 4 if omitted.
 
+## JSON Schema
+- The manifest is validated on startup using `schemas/manifest.schema.json`.
+- If validation fails, the Hub logs errors and exits with a nonzero code.
+
 ## Example
 ```yaml
 cores:

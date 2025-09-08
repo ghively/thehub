@@ -12,6 +12,7 @@ This document describes a runtime design where adding a Core (via the manifest) 
 - Manifest Loader
   - Loads/validates YAML; supports hot-reload.
   - Emits events (added/removed/updated core definitions).
+  - Validates against `schemas/manifest.schema.json` with Ajv; enforces unique namespaces.
 
 - Supervisor
   - Spawns Core processes with env/secrets; monitors liveness/readiness; restarts with backoff.

@@ -39,6 +39,10 @@ cores:
 ```
 - The Hub spawns your Core, calls `initialize`, collects tools via `tools/list`, and exposes them as `<namespace>.<tool>` to all clients.
 
+### Validation
+- Your manifest is validated against a JSON Schema at `schemas/manifest.schema.json`.
+- On startup, the Hub refuses invalid manifests and prints validation errors.
+
 ## Guardrails & Policy
 - Implement destructive-operation guardrails at the Core (e.g., confirm flags).
 - The Hub may apply additional policy (allow/deny lists, concurrency caps).
@@ -58,4 +62,3 @@ cores:
 ## Next Steps
 - Use `runtime/examples/cores/template-core.js` as a starting point.
 - Keep tool contracts stable and version them when needed.
-

@@ -4,9 +4,8 @@
 
 import { createServer as createHttpServer } from 'http';
 import { WebSocketServer } from 'ws';
-import fs from 'node:fs';
 import { spawn } from 'node:child_process';
-import YAML from 'yaml';
+import { loadAndValidateManifest } from './manifest.js';
 
 const args = process.argv.slice(2);
 
@@ -63,14 +62,6 @@ class JsonRpcStdioClient {
   }
 }
 
-async function loadManifest() {
-  const path = process.env.HUB_MANIFEST;
-  if (!path || !fs.existsSync(path)) return null;
-  const raw = fs.readFileSync(path, 'utf8');
-  const doc = YAML.parse(raw);
-  return doc || null;
-}
-
 async function spawnCore(name, cfg) {
   const { command, args = [], cwd = process.cwd(), env = {}, namespace = name } = cfg;
   const child = spawn(command, args, { cwd, env: { ...process.env, ...env } });
@@ -87,11 +78,16 @@ async function spawnCore(name, cfg) {
 }
 
 async function initCoresFromManifest() {
-  const m = await loadManifest();
-  if (!m || !m.cores) return;
-  const names = Object.keys(m.cores);
+  const { manifest, errors } = loadAndValidateManifest();
+  if (!manifest) {
+    // eslint-disable-next-line no-console
+    console.error('Manifest validation failed:', errors.join('; '));
+    process.exitCode = 2;
+    return;
+  }
+  const names = Object.keys(manifest.cores || {});
   for (const n of names) {
-    await spawnCore(n, m.cores[n]);
+    await spawnCore(n, manifest.cores[n]);
   }
 }
 

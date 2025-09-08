@@ -9,6 +9,7 @@ This document outlines how to run the Hub in a container and connect it to ChatG
 ## Images
 - Tag: `ghively/thehub:<version>` (to be produced by CI).
 - Runs as non-root, with `HEALTHCHECK` endpoint and env-driven config.
+- Validates `HUB_MANIFEST` against `schemas/manifest.schema.json` on startup.
 
 ## Sample docker-compose.yml
 ```yaml
