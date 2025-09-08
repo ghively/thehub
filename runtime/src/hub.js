@@ -64,7 +64,14 @@ class JsonRpcStdioClient {
 
 async function spawnCore(name, cfg) {
   const { command, args = [], cwd = process.cwd(), env = {}, namespace = name } = cfg;
-  const child = spawn(command, args, { cwd, env: { ...process.env, ...env } });
+  let child;
+  try {
+    child = spawn(command, args, { cwd, env: { ...process.env, ...env } });
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(`Failed to spawn core '${name}':`, e?.message || e);
+    return;
+  }
   const rpc = new JsonRpcStdioClient(child);
   await rpc.request('initialize', {});
   const toolsResp = await rpc.request('tools/list', {});

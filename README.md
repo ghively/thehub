@@ -14,6 +14,7 @@ Key docs:
 - ROADMAP.md: phased plan and milestones for building the Hub.
 - README.md: this index.
 - hubprompt.md: an LLM prompt to plan the Hub at a later date using these docs.
+ - examples/chatgpt_connection_url.json and examples/chatgpt_connection_command.json: ready-to-use ChatGPT Connections templates.
 
 ## Deployment Goals
 - Containerized Hub: official Docker image and Compose examples for local and server deployments.
