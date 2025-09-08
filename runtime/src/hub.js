@@ -9,15 +9,21 @@ import { spawn } from 'node:child_process';
 import Ajv from 'ajv';
 import { loadAndValidateManifest } from './manifest.js';
 import { createLogger } from './logger.js';
+import { Semaphore, TokenBucket } from './limits.js';
+import { metrics, renderPrometheus } from './metrics.js';
 
 const args = process.argv.slice(2);
 
 // In-memory registry: namespaced tool id -> { core, tool }
 const log = createLogger({ component: 'hub' });
 const registry = new Map();
-const cores = new Map(); // coreName -> { proc, rpc, namespace, tools: [], cfg }
+const cores = new Map(); // coreName -> { proc, rpc, namespace, tools: [], cfg, sem }
 let watcher = null;
 const ajvTool = new Ajv({ allErrors: true, strict: false, allowUnionTypes: true });
+const CLIENT_LIMIT = Number(process.env.HUB_MAX_CONCURRENCY_PER_CLIENT || 4);
+const CLIENT_RPS = Number(process.env.HUB_RATE_LIMIT_RPS || 0);
+const stdioBucket = new TokenBucket(CLIENT_RPS, CLIENT_RPS);
+let stdioInflight = 0;
 
 // Basic JSON-RPC over STDIO (LSP framing) client
 class JsonRpcStdioClient {
@@ -92,7 +98,8 @@ async function spawnCore(name, cfg) {
       }
     }
   }
-  const core = { proc: child, rpc, namespace, tools, cfg };
+  const maxConc = Math.max(1, Number(cfg?.policy?.max_concurrency || 4));
+  const core = { proc: child, rpc, namespace, tools, cfg, sem: new Semaphore(maxConc) };
   cores.set(name, core);
   for (const t of tools) {
     const nsName = `${namespace}.${t.name}`;
@@ -203,7 +210,7 @@ function mcpListToolsResponse(id) {
   return { jsonrpc: '2.0', id, result: { tools } };
 }
 
-function mcpCallToolResponse(id, params) {
+async function mcpCallToolResponse(id, params, clientLabel = 'unknown') {
   const full = params?.name || '';
   const entry = registry.get(full);
   if (!entry) {
@@ -211,13 +218,22 @@ function mcpCallToolResponse(id, params) {
   }
   const { core } = entry;
   const bareName = full.includes('.') ? full.split('.').slice(1).join('.') : full;
-  return core.rpc
-    .request('tools/call', { name: bareName, arguments: params?.arguments || {} })
-    .then((result) => ({ jsonrpc: '2.0', id, result }))
-    .catch((error) => ({ jsonrpc: '2.0', id, error }));
+  const start = Date.now();
+  const release = await core.sem.acquire();
+  try {
+    const result = await core.rpc.request('tools/call', { name: bareName, arguments: params?.arguments || {} });
+    metrics.requests_total.inc({ client: clientLabel, method: 'tools/call', core: core.namespace });
+    metrics.request_latency_seconds.observe((Date.now() - start) / 1000);
+    return { jsonrpc: '2.0', id, result };
+  } catch (error) {
+    metrics.errors_total.inc({ client: clientLabel, method: 'tools/call', core: core.namespace });
+    return { jsonrpc: '2.0', id, error };
+  } finally {
+    release();
+  }
 }
 
-function handleJsonRpc(message) {
+function handleJsonRpc(message, clientLabel = 'unknown') {
   // Very small router for MCP-like methods used by Connections
   const { id, method, params } = message || {};
   if (!method) return null;
@@ -231,7 +247,7 @@ function handleJsonRpc(message) {
   if (method === 'ping') return { jsonrpc: '2.0', id, result: { ok: true } };
   if (method === 'initialize') return mcpInitializeResponse(id);
   if (method === 'tools/list') return mcpListToolsResponse(id);
-  if (method === 'tools/call') return mcpCallToolResponse(id, params);
+  if (method === 'tools/call') return mcpCallToolResponse(id, params, clientLabel);
   // Unknown method
   return { jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } };
 }
@@ -258,8 +274,29 @@ function startStdio() {
       buffer = buffer.slice(start + length);
       try {
         const msg = JSON.parse(body);
-        const resp = handleJsonRpc(msg);
-        if (resp) sendStdio(resp);
+        // rate limit and per-client concurrency for STDIO
+        if (msg.method === 'tools/call') {
+          if (CLIENT_RPS > 0 && !stdioBucket.allow()) {
+            const err = { jsonrpc: '2.0', id: msg.id ?? null, error: { code: 429, message: 'rate limit exceeded' } };
+            sendStdio(err);
+            continue;
+          }
+          if (stdioInflight >= CLIENT_LIMIT) {
+            const err = { jsonrpc: '2.0', id: msg.id ?? null, error: { code: 429, message: 'too many concurrent requests' } };
+            sendStdio(err);
+            continue;
+          }
+        }
+        const resp = handleJsonRpc(msg, 'stdio');
+        if (resp) {
+          if (typeof resp.then === 'function') {
+            if (msg.method === 'tools/call') stdioInflight++;
+            resp.finally(() => { if (msg.method === 'tools/call') stdioInflight = Math.max(0, stdioInflight - 1); });
+            resp.then(sendStdio);
+          } else {
+            sendStdio(resp);
+          }
+        }
       } catch {
         // ignore parse errors in stub
       }
@@ -290,6 +327,12 @@ function startWebSocket(port = 3000, host = '0.0.0.0') {
       res.end(body);
       return;
     }
+    if (req.url === '/metrics') {
+      const body = renderPrometheus();
+      res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4' });
+      res.end(body);
+      return;
+    }
     res.writeHead(404);
     res.end();
   });
@@ -310,11 +353,34 @@ function startWebSocket(port = 3000, host = '0.0.0.0') {
       }
     }
 
+    const bucket = new TokenBucket(CLIENT_RPS, CLIENT_RPS);
+    let inflight = 0;
+
     ws.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
-        const resp = handleJsonRpc(msg);
-        if (resp) ws.send(JSON.stringify(resp));
+        if (msg.method === 'tools/call') {
+          if (CLIENT_RPS > 0 && !bucket.allow()) {
+            const err = { jsonrpc: '2.0', id: msg.id ?? null, error: { code: 429, message: 'rate limit exceeded' } };
+            ws.send(JSON.stringify(err));
+            return;
+          }
+          if (inflight >= CLIENT_LIMIT) {
+            const err = { jsonrpc: '2.0', id: msg.id ?? null, error: { code: 429, message: 'too many concurrent requests' } };
+            ws.send(JSON.stringify(err));
+            return;
+          }
+        }
+        const resp = handleJsonRpc(msg, 'ws');
+        if (resp) {
+          if (typeof resp.then === 'function') {
+            if (msg.method === 'tools/call') inflight++;
+            resp.finally(() => { if (msg.method === 'tools/call') inflight = Math.max(0, inflight - 1); });
+            resp.then(r => ws.send(JSON.stringify(r)));
+          } else {
+            ws.send(JSON.stringify(resp));
+          }
+        }
       } catch {
         // ignore
       }
