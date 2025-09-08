@@ -48,21 +48,19 @@ cores:
 ## Example
 ```yaml
 cores:
-  action1:
+  template:
     command: node
-    args: ["--enable-source-maps", "dist/server.js"]
-    cwd: /opt/cores/action1
-    env:
-      API_BASE: https://app.action1.com/api/3.0
-    secrets:
-      - BEARER_TOKEN
-    namespace: action1
+    args: ["runtime/examples/cores/template-core.js"]
+    cwd: /path/to/repo
+    env: {}
+    secrets: []
+    namespace: template
     policy:
       allow_destructive: false
-      max_concurrency: 8
+      max_concurrency: 4
     health:
-      startup_timeout_ms: 15000
+      startup_timeout_ms: 10000
       ping_interval_ms: 20000
-      restart_backoff_ms: 3000
-    tags: ["prod"]
+      restart_backoff_ms: 2000
+    tags: ["dev"]
 ```

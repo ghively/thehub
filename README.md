@@ -6,6 +6,7 @@ Key docs:
 - HUB_CONCEPT.md: concept, best practices, and an integration guide for managing many Cores.
 - CORES_OVERVIEW.md: what a Core is, lifecycle, guardrails, and expectations.
 - CORE_INTERFACE.md: expected Core contract for the Hub (naming, handshake, tool semantics).
+- DEVELOPING_CORES.md: practical guide and template for building a Core.
 - MANIFEST_SPEC.md: Hub manifest schema (command/args/env/secrets/policy/namespacing) with examples.
 - SECURITY_MODEL.md: secrets/identity/isolation/policy hardening for the Hub and Cores.
 - OBSERVABILITY.md: OpenTelemetry traces/metrics/logs, correlation, dashboards.

@@ -8,6 +8,8 @@ This document defines the expected interface between the Hub and a Core MCP serv
 
 Note: The Core-to-Hub interface is transport-agnostic from the client’s perspective. Whether a client connects to the Hub over STDIO (Command) or WebSocket (URL), the same namespaced tools and behaviors are exposed without Core-specific reconfiguration.
 
+See also: DEVELOPING_CORES.md for a step-by-step Core template and implementation notes.
+
 ## Namespacing & Tool IDs
 - The Hub assigns a namespace (e.g., `action1:`) and exposes tools as `<ns>.<tool>`.
 - Core tool names should be stable and descriptive.
