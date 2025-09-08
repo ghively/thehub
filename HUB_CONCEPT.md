@@ -8,6 +8,9 @@ This document brainstorms a middleware “Hub” that provides a single connecti
 - Unified auth model and per-core secret isolation.
 - Consistent tool naming and namespacing.
 - Observability (logs, metrics) across Cores.
+- Containerized deployment (Docker) and first-class compatibility with ChatGPT’s MCP Connections.
+- Multi-client support so multiple chats can share one Hub instance safely.
+- Transport-agnostic configuration: one manifest; all clients (ChatGPT and generic MCP) see the same namespaced tools without per-transport changes.
 
 ## Terms
 - Core: a standalone MCP server for a single API (this repo is a Core for Action1).
@@ -62,10 +65,25 @@ cores:
 - WebSocket/TCP: Hub can proxy MCP messages to Cores running remotely (define framing & auth).
 - SSH: Hub can spawn Cores remotely via SSH and tunnel STDIO.
 
+### ChatGPT Connections Integration
+- Modes
+  - Command/STDIO: For local desktop, ChatGPT can launch a Hub process directly (or via a wrapper that `docker run -i`), speaking MCP over STDIO.
+  - WebSocket Server: Preferred for sharing one Hub across multiple chats. ChatGPT connects to `ws://localhost:<port>` (desktop) or `wss://<domain>` (web) and establishes an MCP session.
+- Sharing
+  - The Hub acts as a multi-client MCP server: each client gets its own session while sharing the same pool of Core processes.
+  - Fair scheduling and per-client concurrency limits prevent one chat from starving others.
+  - No reconfiguration per client type: adding a Core makes it available to all transports.
+- Security
+  - When exposed beyond localhost, require `wss://` with TLS and a bearer token or mTLS.
+  - Optional allowlist for origins and IPs; redact secrets in logs.
+  
+See DOCKER.md for container run modes and sample ChatGPT Connection configurations.
+
 ## Security
 - Secrets stored centrally (e.g., file-based vault, KMS). Hub injects env vars per Core at spawn.
 - Audit logging: correlate requests across Hub and Cores with request IDs.
 - Isolation: run each Core under a dedicated user/container with scoped permissions.
+- WebSocket exposure: prefer localhost-only for development; for internet exposure, use `wss://` with short-lived tokens and rate limits.
 
 ## Orchestration
 - Tool catalog: Hub provides a discovery tool returning all namespaced tools.
@@ -184,4 +202,3 @@ cores:
 - Guardrails: The Core requires `confirm:"YES"` and `ALLOW_DESTRUCTIVE=true` for destructive tools. The Hub can add a safety net to block destructive calls globally.
 - Tool catalog: The Core registers a stable set of generic tools. The Hub should list these and present namespaced versions to clients.
 - Versioning/spec drift: Periodically run `npm run audit:endpoints` inside the Core workspace and collect the Spec Audit header for compliance records.
-

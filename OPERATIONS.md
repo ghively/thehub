@@ -14,9 +14,10 @@
 - Manifests validated; secrets provisioned.
 - OTel endpoints reachable; dashboards updated.
 - Canary Hub instance healthy before full rollout.
+- Containerization: image scanned for vulnerabilities, runs as non-root, healthcheck passing.
+- WebSocket exposure: TLS configured (wss), Authorization enforced, reasonable timeouts set.
 
 ## Incident Response
 - Correlate `req_id` across Hub/Core logs.
 - Identify failing Core(s); isolate with circuit breaker.
 - Communicate blast radius and expected recovery time.
-

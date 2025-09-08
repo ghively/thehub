@@ -2,6 +2,13 @@
 
 Defines how the Hub discovers, launches, and manages Cores.
 
+## Transport Neutrality
+- The manifest is the single source of truth for Cores across all client transports.
+- Adding or modifying a Core in the manifest makes it available to:
+  - ChatGPT via MCP Connections (Command/STDIO or WebSocket URL), and
+  - Any other MCP client (STDIO or WebSocket),
+  without additional per-transport configuration.
+
 ## Schema (YAML)
 ```yaml
 cores:
@@ -59,4 +66,3 @@ cores:
       restart_backoff_ms: 3000
     tags: ["prod"]
 ```
-

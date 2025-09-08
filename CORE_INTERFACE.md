@@ -6,6 +6,8 @@ This document defines the expected interface between the Hub and a Core MCP serv
 - Transport: STDIO MCP required. The Hub connects and performs MCP handshake.
 - Readiness: Core is considered ready once tools are registered and pingable.
 
+Note: The Core-to-Hub interface is transport-agnostic from the client’s perspective. Whether a client connects to the Hub over STDIO (Command) or WebSocket (URL), the same namespaced tools and behaviors are exposed without Core-specific reconfiguration.
+
 ## Namespacing & Tool IDs
 - The Hub assigns a namespace (e.g., `action1:`) and exposes tools as `<ns>.<tool>`.
 - Core tool names should be stable and descriptive.
@@ -28,4 +30,3 @@ This document defines the expected interface between the Hub and a Core MCP serv
 
 ## Health
 - Ping/Pong via MCP; optional HTTP `/healthz` if available.
-

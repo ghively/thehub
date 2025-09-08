@@ -14,4 +14,12 @@ Key docs:
 - README.md: this index.
 - hubprompt.md: an LLM prompt to plan the Hub at a later date using these docs.
 
+## Deployment Goals
+- Containerized Hub: official Docker image and Compose examples for local and server deployments.
+- ChatGPT Connections: compatible with ChatGPT’s MCP Connections via:
+  - Local command/STDIO mode (developer desktop).
+  - WebSocket server mode (`ws://` for local desktop, `wss://` for hosted/web) to share one Hub across multiple chats.
+  - Multi-client support so several ChatGPT chats can concurrently use the same Hub instance.
+- Transport-agnostic configuration: a single manifest defines Cores once; the same Cores are immediately available to both ChatGPT Connections and generic MCP clients without per-transport reconfiguration.
+
 See the main repository README for Core details. The Hub should remain thin: process management, namespacing, routing/policy, and observability — while each Core keeps API-specific logic.
