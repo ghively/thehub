@@ -34,3 +34,5 @@ Logging: install dependencies in runtime and run tests
 - Added JSON Schema validation for manifest and updated docs; expanded template-core with commented example tool.
 - Added manifest JSON Schema and Ajv validation; updated docs and template core.
 - Optimized hub spawn error handling; all STDIO tests pass, WS tests pass under elevation due to sandbox.
+- Implemented hot-reload with fs.watch and registry reconciliation.
+- Added structured JSON logging and /healthz endpoint; Docker HEALTHCHECK updated.
