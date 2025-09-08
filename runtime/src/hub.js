@@ -1,21 +1,99 @@
 #!/usr/bin/env node
-// Minimal scaffold: MCP-like STDIO and WebSocket servers with a single echo tool.
-// This is a stub for validation only; adjust to the evolving MCP spec as needed.
+// Minimal scaffold: MCP-like Hub with STDIO and WebSocket servers.
+// Adds manifest-driven Core supervision (STDIO) and namespaced tool routing.
 
 import { createServer as createHttpServer } from 'http';
 import { WebSocketServer } from 'ws';
+import fs from 'node:fs';
+import { spawn } from 'node:child_process';
+import YAML from 'yaml';
 
 const args = process.argv.slice(2);
 
-const ECHO_TOOL = {
-  name: 'echo.say',
-  description: 'Echo back provided text',
-  inputSchema: {
-    type: 'object',
-    properties: { text: { type: 'string' } },
-    required: ['text']
+// In-memory registry: namespaced tool id -> { core, tool }
+const registry = new Map();
+const cores = new Map(); // coreName -> { proc, rpc, namespace, tools: [] }
+
+// Basic JSON-RPC over STDIO (LSP framing) client
+class JsonRpcStdioClient {
+  constructor(child) {
+    this.child = child;
+    this.buffer = Buffer.alloc(0);
+    this.idSeq = 1;
+    this.pending = new Map();
+    child.stdout.on('data', (chunk) => this._onData(chunk));
   }
-};
+  _onData(chunk) {
+    this.buffer = Buffer.concat([this.buffer, chunk]);
+    while (true) {
+      const sep = this.buffer.indexOf('\r\n\r\n');
+      if (sep === -1) break;
+      const header = this.buffer.slice(0, sep).toString('utf8');
+      const m = header.match(/Content-Length:\s*(\d+)/i);
+      if (!m) break;
+      const len = parseInt(m[1], 10);
+      const start = sep + 4;
+      if (this.buffer.length < start + len) break;
+      const body = this.buffer.slice(start, start + len).toString('utf8');
+      this.buffer = this.buffer.slice(start + len);
+      try {
+        const msg = JSON.parse(body);
+        if (msg.id && this.pending.has(msg.id)) {
+          const { resolve, reject } = this.pending.get(msg.id);
+          this.pending.delete(msg.id);
+          if (msg.error) reject(msg.error);
+          else resolve(msg.result);
+        }
+      } catch {}
+    }
+  }
+  _send(obj) {
+    const payload = Buffer.from(JSON.stringify(obj), 'utf8');
+    const headers = Buffer.from(`Content-Length: ${payload.length}\r\n\r\n`, 'utf8');
+    this.child.stdin.write(headers);
+    this.child.stdin.write(payload);
+  }
+  request(method, params = {}) {
+    const id = this.idSeq++;
+    const req = { jsonrpc: '2.0', id, method, params };
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject });
+      this._send(req);
+    });
+  }
+}
+
+async function loadManifest() {
+  const path = process.env.HUB_MANIFEST;
+  if (!path || !fs.existsSync(path)) return null;
+  const raw = fs.readFileSync(path, 'utf8');
+  const doc = YAML.parse(raw);
+  return doc || null;
+}
+
+async function spawnCore(name, cfg) {
+  const { command, args = [], cwd = process.cwd(), env = {}, namespace = name } = cfg;
+  const child = spawn(command, args, { cwd, env: { ...process.env, ...env } });
+  const rpc = new JsonRpcStdioClient(child);
+  await rpc.request('initialize', {});
+  const toolsResp = await rpc.request('tools/list', {});
+  const tools = toolsResp.tools || [];
+  const core = { proc: child, rpc, namespace, tools };
+  cores.set(name, core);
+  for (const t of tools) {
+    const nsName = `${namespace}.${t.name}`;
+    registry.set(nsName, { core, tool: t });
+  }
+}
+
+async function initCoresFromManifest() {
+  const m = await loadManifest();
+  if (!m || !m.cores) return;
+  const names = Object.keys(m.cores);
+  for (const n of names) {
+    await spawnCore(n, m.cores[n]);
+  }
+}
 
 function mcpInitializeResponse(id) {
   return {
@@ -32,23 +110,25 @@ function mcpInitializeResponse(id) {
 }
 
 function mcpListToolsResponse(id) {
-  return {
-    jsonrpc: '2.0',
-    id,
-    result: { tools: [ECHO_TOOL] }
-  };
+  const tools = [];
+  for (const [name, { tool }] of registry.entries()) {
+    tools.push({ ...tool, name });
+  }
+  return { jsonrpc: '2.0', id, result: { tools } };
 }
 
 function mcpCallToolResponse(id, params) {
-  const text = params?.name === ECHO_TOOL.name ? String(params?.arguments?.text ?? '') : '';
-  return {
-    jsonrpc: '2.0',
-    id,
-    result: {
-      content: [{ type: 'text', text }],
-      isError: false
-    }
-  };
+  const full = params?.name || '';
+  const entry = registry.get(full);
+  if (!entry) {
+    return { jsonrpc: '2.0', id, error: { code: -32601, message: `Unknown tool: ${full}` } };
+  }
+  const { core } = entry;
+  const bareName = full.includes('.') ? full.split('.').slice(1).join('.') : full;
+  return core.rpc
+    .request('tools/call', { name: bareName, arguments: params?.arguments || {} })
+    .then((result) => ({ jsonrpc: '2.0', id, result }))
+    .catch((error) => ({ jsonrpc: '2.0', id, error }));
 }
 
 function handleJsonRpc(message) {
@@ -153,15 +233,17 @@ function startWebSocket(port = 3000, host = '0.0.0.0') {
 }
 
 // CLI
-if (args.includes('--stdio')) {
-  startStdio();
-} else if (args.includes('--ws')) {
-  const idx = args.indexOf('--ws');
-  const port = Number(args[idx + 1]) || 3000;
-  startWebSocket(port);
-} else {
-  // Default help
-  // eslint-disable-next-line no-console
-  console.log('Usage: hub --stdio | --ws <port>');
-  process.exit(0);
-}
+(async () => {
+  await initCoresFromManifest();
+  if (args.includes('--stdio')) {
+    startStdio();
+  } else if (args.includes('--ws')) {
+    const idx = args.indexOf('--ws');
+    const port = Number(args[idx + 1]) || 3000;
+    startWebSocket(port);
+  } else {
+    // eslint-disable-next-line no-console
+    console.log('Usage: hub --stdio | --ws <port>');
+    process.exit(0);
+  }
+})();

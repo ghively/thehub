@@ -9,10 +9,12 @@
   },
   "scripts": {
     "start:stdio": "node src/hub.js --stdio",
-    "start:ws": "node src/hub.js --ws 3000"
+    "start:ws": "node src/hub.js --ws 3000",
+    "test": "node tests/test_stdio.js && node tests/test_ws.js",
+    "test:hub": "node tests/test_hub_core_stdio.js && node tests/test_hub_core_ws.js"
   },
   "dependencies": {
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "yaml": "^2.5.0"
   }
 }
-
