@@ -36,3 +36,4 @@ Logging: install dependencies in runtime and run tests
 - Optimized hub spawn error handling; all STDIO tests pass, WS tests pass under elevation due to sandbox.
 - Implemented hot-reload with fs.watch and registry reconciliation.
 - Added structured JSON logging and /healthz endpoint; Docker HEALTHCHECK updated.
+- Added tool inputSchema validation using Ajv; Hub now logs warnings on invalid tool schemas during discovery.
