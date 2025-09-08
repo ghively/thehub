@@ -1,0 +1,10 @@
+services:
+  hub:
+    build: .
+    environment:
+      HUB_MANIFEST: /app/examples/manifests/hub.yaml
+      # HUB_TOKEN: ${HUB_TOKEN:-}
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    command: ["node", "/app/runtime/src/hub.js", "--ws", "3000"]

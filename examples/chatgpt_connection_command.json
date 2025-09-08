@@ -1,0 +1,9 @@
+{
+  "type": "command",
+  "command": "node",
+  "args": ["runtime/src/hub.js", "--stdio"],
+  "env": {
+    "HUB_MANIFEST": "/Users/ghively/Documents/MCP/The_Hub/examples/manifests/hub.yaml"
+  },
+  "label": "The Hub (Local Command)"
+}

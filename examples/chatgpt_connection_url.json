@@ -1,0 +1,8 @@
+{
+  "type": "websocket",
+  "url": "ws://localhost:3000",
+  "headers": {
+    "Authorization": "Bearer ${HUB_TOKEN}"
+  },
+  "label": "The Hub (Local WS)"
+}
