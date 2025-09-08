@@ -32,3 +32,5 @@ Logging: install dependencies in runtime and run tests
 - Added DEVELOPING_CORES.md and switched example manifest/tests to template-core.
 - Re-ran integration tests with template-core: STDIO passed; WS passed under elevation.
 - Added JSON Schema validation for manifest and updated docs; expanded template-core with commented example tool.
+- Added manifest JSON Schema and Ajv validation; updated docs and template core.
+- Optimized hub spawn error handling; all STDIO tests pass, WS tests pass under elevation due to sandbox.
