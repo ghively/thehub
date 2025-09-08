@@ -24,3 +24,5 @@ Logging: install dependencies in runtime and run tests
 - Outcome: Barebones runtime validates MCP handshake, tools/list, tools/call, and ping over STDIO and WS.
 - Implemented manifest loader + core supervision and namespaced routing.
 - Added echo-core and example manifest; created integration tests (STDIO/WS).
+- Ran Hub-Core STDIO integration: passed.
+- Hub-Core WS integration requires elevation due to sandbox port binding restrictions.
