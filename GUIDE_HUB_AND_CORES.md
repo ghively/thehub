@@ -15,6 +15,7 @@ This guide explains how the Hub works, how to run it locally or in Docker, how i
 - Transports: STDIO (Command) and WebSocket (URL), sharing the same registry and router.
 - Hot-Reload: watches the manifest, reconciles processes and registry on changes.
 - Observability: structured JSON logs (redacted), `/healthz` endpoint, optional OTel in future.
+ - Limits & Metrics: per-core concurrency (semaphores), per-client caps and rate limits, Prometheus `/metrics`.
 
 ## Running the Hub
 - Install deps: `cd runtime && npm install`
@@ -23,6 +24,7 @@ This guide explains how the Hub works, how to run it locally or in Docker, how i
   - Optional: `HUB_TOKEN=yourtoken` and provide `Authorization: Bearer yourtoken` header.
 - Docker: `docker compose up --build` (probes `/healthz`).
 - Health: `curl http://localhost:3000/healthz` → `{ ok, cores, tools }`.
+ - Metrics: `curl http://localhost:3000/metrics` → Prometheus text format.
 
 ## ChatGPT Connections
 - URL mode: See `examples/chatgpt_connection_url.json` (ws://localhost:3000). Use TLS (`wss://`) when hosted.
@@ -32,6 +34,7 @@ This guide explains how the Hub works, how to run it locally or in Docker, how i
 - Start from `runtime/examples/cores/template-core.js` (echo tool implementation).
 - Implement: `initialize`, `tools/list`, `tools/call`, `ping` over STDIO with LSP framing.
 - Keep tool IDs stable and provide `inputSchema`. The Hub validates schemas and logs warnings for invalid ones.
+ - Optional validation: The Hub can warn-only if provided schemas don’t compile; it does not block execution.
 - Add to manifest once:
 ```yaml
 cores:
@@ -46,7 +49,12 @@ cores:
 ## Hot-Reload
 - Edit the manifest (e.g., change a namespace or args). The Hub detects changes and reconciles:
   - Stops removed cores, restarts changed cores, and refreshes the tool registry.
-  - Clients can call `tools/list` to see updates immediately.
+- Clients can call `tools/list` to see updates immediately.
+
+## Concurrency & Rate Limits
+- Per-core concurrency: `policy.max_concurrency` in the manifest controls parallel calls into a Core.
+- Per-client concurrency: `HUB_MAX_CONCURRENCY_PER_CLIENT` (default 4) limits simultaneous `tools/call` per client connection.
+- Per-client RPS: `HUB_RATE_LIMIT_RPS` throttles calls per second (token bucket) for each client.
 
 ## Logging
 - Structured JSON on stderr with field redaction.
@@ -66,4 +74,3 @@ cores:
 - Add per-client concurrency caps and rate limiting.
 - Add OTel tracing/metrics and dashboards.
 - Add fan-out tools for aggregation.
-

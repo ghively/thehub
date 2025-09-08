@@ -54,8 +54,17 @@ This allows ChatGPT to speak MCP over STDIO with the containerized Hub. This mod
 - Redact secrets in logs; never echo Core secrets back to clients.
 
 ## Health & Observability
-- Health: `/healthz` or MCP ping from clients.
+- Health: `/healthz` on the WebSocket HTTP server returns `{ ok, cores, tools }`.
 - Observability: enable OTel exporter via env (e.g., `OTEL_EXPORTER_OTLP_ENDPOINT`).
+ - Logs: Hub emits structured JSON to stderr with redaction. Fields include `{ ts, level, msg, component, ...context }`.
+ - Metrics: Prometheus endpoint at `/metrics`. Example scrape config (Prometheus):
+   
+   ```yaml
+   scrape_configs:
+     - job_name: thehub
+       static_configs:
+         - targets: ['localhost:3000']
+   ```
 
 ## Next Steps (Implementation Plan)
 - Add WebSocket transport to the Hub runtime and a connection manager for multi-client sessions.

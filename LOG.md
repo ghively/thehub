@@ -37,5 +37,7 @@ Logging: install dependencies in runtime and run tests
 - Implemented hot-reload with fs.watch and registry reconciliation.
 - Added structured JSON logging and /healthz endpoint; Docker HEALTHCHECK updated.
 - Added tool inputSchema validation using Ajv; Hub now logs warnings on invalid tool schemas during discovery.
+- Implemented per-core semaphores, per-client concurrency caps, and per-client rate limits. Added async tool-call handling and Prometheus `/metrics`.
+- Added reverse proxy examples (Caddy/NGINX/Traefik) and CI workflow for tests + Docker build.
 - Added comprehensive guide and next-steps; expanded .gitignore with AI/Connections artifacts.
 - Re-validated: STDIO pass; WS pass under elevation due to sandbox.
