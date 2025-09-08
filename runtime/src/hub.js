@@ -6,6 +6,7 @@ import { createServer as createHttpServer } from 'http';
 import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
+import Ajv from 'ajv';
 import { loadAndValidateManifest } from './manifest.js';
 import { createLogger } from './logger.js';
 
@@ -16,6 +17,7 @@ const log = createLogger({ component: 'hub' });
 const registry = new Map();
 const cores = new Map(); // coreName -> { proc, rpc, namespace, tools: [], cfg }
 let watcher = null;
+const ajvTool = new Ajv({ allErrors: true, strict: false, allowUnionTypes: true });
 
 // Basic JSON-RPC over STDIO (LSP framing) client
 class JsonRpcStdioClient {
@@ -81,6 +83,15 @@ async function spawnCore(name, cfg) {
   log.info('core_initialized', { name, serverInfo: init?.serverInfo });
   const toolsResp = await rpc.request('tools/list', {});
   const tools = toolsResp.tools || [];
+  for (const t of tools) {
+    if (t?.inputSchema) {
+      try {
+        ajvTool.compile(t.inputSchema);
+      } catch (e) {
+        log.warn('tool_schema_invalid', { name, tool: t.name, error: e?.message || String(e) });
+      }
+    }
+  }
   const core = { proc: child, rpc, namespace, tools, cfg };
   cores.set(name, core);
   for (const t of tools) {
