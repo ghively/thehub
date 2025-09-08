@@ -55,6 +55,13 @@ function handleJsonRpc(message) {
   // Very small router for MCP-like methods used by Connections
   const { id, method, params } = message || {};
   if (!method) return null;
+  if (method === 'hub/test/exit') {
+    if (process.env.HUB_ALLOW_TEST_SHUTDOWN === '1') {
+      setTimeout(() => process.exit(0), 5);
+      return { jsonrpc: '2.0', id, result: { ok: true } };
+    }
+    return { jsonrpc: '2.0', id, error: { code: 403, message: 'test shutdown not allowed' } };
+  }
   if (method === 'ping') return { jsonrpc: '2.0', id, result: { ok: true } };
   if (method === 'initialize') return mcpInitializeResponse(id);
   if (method === 'tools/list') return mcpListToolsResponse(id);
@@ -158,4 +165,3 @@ if (args.includes('--stdio')) {
   console.log('Usage: hub --stdio | --ws <port>');
   process.exit(0);
 }
-

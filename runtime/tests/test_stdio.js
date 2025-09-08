@@ -44,9 +44,11 @@ async function main() {
   proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'tools/list', params: {} }));
   proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'tools/call', params: { name: 'echo.say', arguments: { text: 'hello' } } }));
   proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'ping', params: {} }));
+  // Ask child to exit cleanly (test-only)
+  process.env.HUB_ALLOW_TEST_SHUTDOWN = '1';
+  proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'hub/test/exit', params: {} }));
 
   const timeout = setTimeout(() => {
-    proc.kill();
     console.error('STDIO test timed out');
     process.exit(1);
   }, 3000);
@@ -54,7 +56,6 @@ async function main() {
   proc.on('exit', () => clearTimeout(timeout));
 
   setTimeout(() => {
-    proc.kill();
     if (ok >= 3) {
       console.log('STDIO test passed');
       process.exit(0);
@@ -66,4 +67,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-

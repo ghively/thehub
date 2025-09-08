@@ -6,7 +6,7 @@ async function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 async function main() {
   const port = 3100;
-  const server = spawn(process.execPath, ['runtime/src/hub.js', '--ws', String(port)], { stdio: ['ignore', 'pipe', 'inherit'] });
+  const server = spawn(process.execPath, ['runtime/src/hub.js', '--ws', String(port)], { stdio: ['ignore', 'pipe', 'inherit'], env: { ...process.env, HUB_ALLOW_TEST_SHUTDOWN: '1' } });
   let ok = 0;
 
   await delay(200); // give server a moment to start
@@ -31,8 +31,10 @@ async function main() {
   ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'ping', params: {} }));
 
   await delay(500);
+  // Ask server to exit cleanly (test-only)
+  ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'hub/test/exit', params: {} }));
+  await delay(200);
   ws.close();
-  server.kill();
 
   if (ok >= 3) {
     console.log('WS test passed');
@@ -44,4 +46,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-
