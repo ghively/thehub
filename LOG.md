@@ -41,3 +41,5 @@ Logging: install dependencies in runtime and run tests
 - Added reverse proxy examples (Caddy/NGINX/Traefik) and CI workflow for tests + Docker build.
 - Added comprehensive guide and next-steps; expanded .gitignore with AI/Connections artifacts.
 - Re-validated: STDIO pass; WS pass under elevation due to sandbox.
+- Implemented per-client/core limits and /metrics; updated docs and CI.
+- Re-ran integration tests: STDIO passed; WS passed under elevation.
