@@ -29,3 +29,4 @@ Logging: install dependencies in runtime and run tests
 - Hub-Core WS integration: passed under elevation.
 - Added docker-compose with HUB_MANIFEST volume path baked into image context.
 - Added ChatGPT Connections templates for URL and Command modes.
+- Added DEVELOPING_CORES.md and switched example manifest/tests to template-core.
