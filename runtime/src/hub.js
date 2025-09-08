@@ -3,15 +3,19 @@
 // Adds manifest-driven Core supervision (STDIO) and namespaced tool routing.
 
 import { createServer as createHttpServer } from 'http';
+import fs from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { spawn } from 'node:child_process';
 import { loadAndValidateManifest } from './manifest.js';
+import { createLogger } from './logger.js';
 
 const args = process.argv.slice(2);
 
 // In-memory registry: namespaced tool id -> { core, tool }
+const log = createLogger({ component: 'hub' });
 const registry = new Map();
-const cores = new Map(); // coreName -> { proc, rpc, namespace, tools: [] }
+const cores = new Map(); // coreName -> { proc, rpc, namespace, tools: [], cfg }
+let watcher = null;
 
 // Basic JSON-RPC over STDIO (LSP framing) client
 class JsonRpcStdioClient {
@@ -66,29 +70,30 @@ async function spawnCore(name, cfg) {
   const { command, args = [], cwd = process.cwd(), env = {}, namespace = name } = cfg;
   let child;
   try {
+    log.info('spawning_core', { name, command, args, cwd, namespace });
     child = spawn(command, args, { cwd, env: { ...process.env, ...env } });
   } catch (e) {
-    // eslint-disable-next-line no-console
-    console.error(`Failed to spawn core '${name}':`, e?.message || e);
+    log.error('spawn_failed', { name, error: e?.message || String(e) });
     return;
   }
   const rpc = new JsonRpcStdioClient(child);
-  await rpc.request('initialize', {});
+  const init = await rpc.request('initialize', {});
+  log.info('core_initialized', { name, serverInfo: init?.serverInfo });
   const toolsResp = await rpc.request('tools/list', {});
   const tools = toolsResp.tools || [];
-  const core = { proc: child, rpc, namespace, tools };
+  const core = { proc: child, rpc, namespace, tools, cfg };
   cores.set(name, core);
   for (const t of tools) {
     const nsName = `${namespace}.${t.name}`;
     registry.set(nsName, { core, tool: t });
   }
+  log.info('tools_registered', { name, namespace, toolCount: tools.length });
 }
 
 async function initCoresFromManifest() {
   const { manifest, errors } = loadAndValidateManifest();
   if (!manifest) {
-    // eslint-disable-next-line no-console
-    console.error('Manifest validation failed:', errors.join('; '));
+    log.error('manifest_invalid', { errors });
     process.exitCode = 2;
     return;
   }
@@ -96,6 +101,73 @@ async function initCoresFromManifest() {
   for (const n of names) {
     await spawnCore(n, manifest.cores[n]);
   }
+  startWatcher();
+}
+
+function startWatcher() {
+  const manifestPath = process.env.HUB_MANIFEST;
+  if (!manifestPath) return;
+  if (watcher) watcher.close();
+  watcher = fs.watch(manifestPath, { persistent: false }, debounce(async () => {
+    const { manifest, errors } = loadAndValidateManifest();
+    if (!manifest) {
+      log.warn('manifest_reload_invalid', { errors });
+      return;
+    }
+    await reconcileCores(manifest);
+  }, 200));
+}
+
+async function reconcileCores(manifest) {
+  const desired = manifest.cores || {};
+  const currentNames = new Set(cores.keys());
+  const desiredNames = new Set(Object.keys(desired));
+
+  // Stop removed cores
+  for (const name of currentNames) {
+    if (!desiredNames.has(name)) {
+      await stopCore(name);
+    }
+  }
+
+  // Start or restart changed cores
+  for (const [name, cfg] of Object.entries(desired)) {
+    const cur = cores.get(name);
+    if (!cur) {
+      await spawnCore(name, cfg);
+      continue;
+    }
+    const changed = JSON.stringify({ ...cur.cfg, cwd: undefined }) !== JSON.stringify({ ...cfg, cwd: undefined }) || cur.namespace !== (cfg.namespace || name);
+    if (changed) {
+      await stopCore(name);
+      await spawnCore(name, cfg);
+    }
+  }
+
+  // Rebuild registry
+  registry.clear();
+  for (const [, core] of cores) {
+    for (const t of core.tools) {
+      registry.set(`${core.namespace}.${t.name}`, { core, tool: t });
+    }
+  }
+  log.info('registry_reconciled', { tools: registry.size, cores: cores.size });
+}
+
+async function stopCore(name) {
+  const core = cores.get(name);
+  if (!core) return;
+  log.info('stopping_core', { name });
+  try { core.proc.kill('SIGTERM'); } catch {}
+  cores.delete(name);
+}
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => {
+    clearTimeout(t);
+    t = setTimeout(() => fn(...args), ms);
+  };
 }
 
 function mcpInitializeResponse(id) {
@@ -200,7 +272,16 @@ function startStdio() {
 
 // WebSocket MCP server (JSON messages per frame). Implements optional token auth via env HUB_TOKEN
 function startWebSocket(port = 3000, host = '0.0.0.0') {
-  const server = createHttpServer();
+  const server = createHttpServer((req, res) => {
+    if (req.url === '/healthz') {
+      const body = JSON.stringify({ ok: true, cores: Array.from(cores.keys()), tools: registry.size });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(body);
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
   const wss = new WebSocketServer({ server, handleProtocols: (protocols) => {
     // Prefer 'mcp' subprotocol if client offers it
     if (protocols.has('mcp')) return 'mcp';
@@ -230,8 +311,7 @@ function startWebSocket(port = 3000, host = '0.0.0.0') {
   });
 
   server.listen(port, host, () => {
-    // eslint-disable-next-line no-console
-    console.log(`Hub WS listening on ws://${host}:${port}`);
+    log.info('ws_listening', { url: `ws://${host}:${port}` });
   });
 }
 
