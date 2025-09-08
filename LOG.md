@@ -30,3 +30,4 @@ Logging: install dependencies in runtime and run tests
 - Added docker-compose with HUB_MANIFEST volume path baked into image context.
 - Added ChatGPT Connections templates for URL and Command modes.
 - Added DEVELOPING_CORES.md and switched example manifest/tests to template-core.
+- Re-ran integration tests with template-core: STDIO passed; WS passed under elevation.
