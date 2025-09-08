@@ -26,3 +26,4 @@ Logging: install dependencies in runtime and run tests
 - Added echo-core and example manifest; created integration tests (STDIO/WS).
 - Ran Hub-Core STDIO integration: passed.
 - Hub-Core WS integration requires elevation due to sandbox port binding restrictions.
+- Hub-Core WS integration: passed under elevation.
