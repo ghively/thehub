@@ -31,3 +31,4 @@ Logging: install dependencies in runtime and run tests
 - Added ChatGPT Connections templates for URL and Command modes.
 - Added DEVELOPING_CORES.md and switched example manifest/tests to template-core.
 - Re-ran integration tests with template-core: STDIO passed; WS passed under elevation.
+- Added JSON Schema validation for manifest and updated docs; expanded template-core with commented example tool.
