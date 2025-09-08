@@ -3,3 +3,16 @@ node_modules/
 npm-debug.log*
 *.log
 *.DS_Store
+.env
+.env.*
+.envrc
+.vscode/
+.idea/
+.cache/
+*.secrets
+secrets/
+openai*.json
+connections.json
+chatgpt*.json
+*.db
+*.sqlite
