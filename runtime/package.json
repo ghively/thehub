@@ -1,0 +1,18 @@
+{
+  "name": "thehub-runtime",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "bin": {
+    "hub": "src/hub.js"
+  },
+  "scripts": {
+    "start:stdio": "node src/hub.js --stdio",
+    "start:ws": "node src/hub.js --ws 3000"
+  },
+  "dependencies": {
+    "ws": "^8.17.0"
+  }
+}
+
