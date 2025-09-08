@@ -20,3 +20,5 @@ Planned next:
 Logging: install dependencies in runtime and run tests
 
 - Ran STDIO test: passed. Preparing to run WS test with elevated permissions due to sandbox port binding restrictions.
+- Ran WS test: passed under elevated permissions (sandbox restricts listen/connect).
+- Outcome: Barebones runtime validates MCP handshake, tools/list, tools/call, and ping over STDIO and WS.
