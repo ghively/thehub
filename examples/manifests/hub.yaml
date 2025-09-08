@@ -1,6 +1,6 @@
 cores:
-  echo:
+  template:
     command: node
-    args: ["runtime/examples/cores/echo-core.js"]
-    namespace: echo
+    args: ["runtime/examples/cores/template-core.js"]
+    namespace: template
     cwd: "/Users/ghively/Documents/MCP/The_Hub"

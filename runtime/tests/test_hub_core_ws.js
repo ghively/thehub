@@ -25,7 +25,7 @@ async function main() {
       if (msg.result) {
         ok++;
         if (msg.result.tools) {
-          listed = msg.result.tools.some(t => t.name === 'echo.say');
+          listed = msg.result.tools.some(t => t.name === 'template.echo');
         }
       }
     } catch {}
@@ -34,7 +34,7 @@ async function main() {
   let id = 1;
   ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'initialize', params: {} }));
   ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'tools/list', params: {} }));
-  ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'tools/call', params: { name: 'echo.say', arguments: { text: 'hi' } } }));
+  ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'tools/call', params: { name: 'template.echo', arguments: { text: 'hi' } } }));
   ws.send(JSON.stringify({ jsonrpc: '2.0', id: id++, method: 'hub/test/exit', params: {} }));
 
   await delay(1000);
@@ -50,4 +50,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-

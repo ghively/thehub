@@ -45,7 +45,7 @@ async function main() {
       if (msg.result) {
         ok++;
         if (msg.result.tools) {
-          listed = msg.result.tools.some(t => t.name === 'echo.say');
+          listed = msg.result.tools.some(t => t.name === 'template.echo');
         }
       }
     }
@@ -53,7 +53,7 @@ async function main() {
 
   proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'initialize', params: {} }));
   proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'tools/list', params: {} }));
-  proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'tools/call', params: { name: 'echo.say', arguments: { text: 'hi' } } }));
+  proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'tools/call', params: { name: 'template.echo', arguments: { text: 'hi' } } }));
   proc.stdin.write(frame({ jsonrpc: '2.0', id: id++, method: 'hub/test/exit', params: {} }));
 
   const timeout = setTimeout(() => { console.error('hub-core stdio timed out'); process.exit(1); }, 4000);
@@ -71,4 +71,3 @@ async function main() {
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
-
