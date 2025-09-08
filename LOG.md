@@ -17,3 +17,4 @@ Planned next:
 - Install dependencies; create and run STDIO + WebSocket tests.
 - Validate results and iterate as needed.
 
+Logging: install dependencies in runtime and run tests
